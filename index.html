@@ -1,0 +1,987 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>Ruleta SomosCOTO</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Dosis:wght@400;600;700;800&family=Montserrat:wght@500;600;700;800&family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+
+  /* ======================================================================
+     PALETA Y TIPOGRAFÍA — para cambiar el look de la ruleta alcanza con
+     tocar estas variables. Los valores de rojo son un placeholder cercano
+     al rojo COTO — reemplazalos por el hex exacto de la guía de marca si
+     lo tenés a mano.
+     ====================================================================== */
+  :root{
+    --rojo:        #E4032E;
+    --rojo-oscuro: #9E0421;
+    --crema:       #FFF7F2;
+    --blanco:      #FFFFFF;
+    --tinta:       #241111;
+    --dorado:      #F2B705;
+    --verde-ok:    #1E7A4C;
+
+    --fuente-display: 'Dosis', sans-serif;
+    --fuente-ui:      'Montserrat', sans-serif;
+    --fuente-texto:   'Roboto', sans-serif;
+
+    --radio-card: 28px;
+  }
+
+  *{ box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+
+  html,body{
+    margin:0; padding:0; width:100%; height:100%;
+    background: radial-gradient(120% 120% at 50% -10%, var(--rojo-oscuro) 0%, var(--rojo) 45%, #7a0219 100%);
+    font-family: var(--fuente-texto);
+    color: var(--tinta);
+    overflow:hidden;
+    user-select:none;
+  }
+
+  #app{
+    position:relative;
+    width:100%; height:100%;
+    display:flex; align-items:center; justify-content:center;
+  }
+
+  .pantalla{
+    position:absolute; inset:0;
+    display:none;
+    align-items:center; justify-content:center;
+    padding: clamp(16px, 4vw, 40px);
+    opacity:0;
+    transform: translateY(14px);
+    transition: opacity .38s ease, transform .38s ease;
+  }
+  .pantalla.activa{ display:flex; }
+  .pantalla.mostrar{ opacity:1; transform:translateY(0); }
+
+  .tarjeta{
+    width:100%;
+    max-width: 560px;
+    max-height: 94vh;
+    overflow-y:auto;
+    background: var(--crema);
+    border-radius: var(--radio-card);
+    box-shadow: 0 24px 60px rgba(0,0,0,.35);
+    padding: clamp(24px, 5vw, 48px);
+    text-align:center;
+  }
+
+  .eyebrow{
+    font-family: var(--fuente-ui);
+    font-weight:700;
+    letter-spacing:.14em;
+    text-transform:uppercase;
+    font-size: 12px;
+    color: var(--rojo);
+    margin: 0 0 10px;
+  }
+
+  h1{
+    font-family: var(--fuente-display);
+    font-weight:800;
+    font-size: clamp(30px, 6vw, 44px);
+    line-height:1.02;
+    margin: 0 0 8px;
+    color: var(--tinta);
+  }
+
+  .subtitulo{
+    font-family: var(--fuente-texto);
+    font-size: 15px;
+    color:#5a4c4c;
+    margin: 0 0 28px;
+    line-height:1.5;
+  }
+
+  /* -------- formulario de inscripción -------- */
+  .campo{ text-align:left; margin-bottom:16px; }
+  .campo label{
+    display:block;
+    font-family: var(--fuente-ui);
+    font-weight:600;
+    font-size: 12px;
+    letter-spacing:.03em;
+    text-transform:uppercase;
+    color:#8a6d6d;
+    margin-bottom:6px;
+  }
+  .campo input[type="text"], .campo input[type="email"]{
+    width:100%;
+    padding: 14px 16px;
+    border-radius: 14px;
+    border: 2px solid #ecdcd6;
+    background: var(--blanco);
+    font-family: var(--fuente-texto);
+    font-size:16px;
+    color: var(--tinta);
+    outline:none;
+    transition: border-color .2s ease;
+  }
+  .campo input:focus{ border-color: var(--rojo); }
+  .campo .error{
+    display:none;
+    font-size:12px;
+    color: var(--rojo);
+    margin-top:6px;
+    font-family: var(--fuente-ui);
+  }
+  .campo.con-error input{ border-color: var(--rojo); }
+  .campo.con-error .error{ display:block; }
+
+  .consentimiento{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    text-align:left;
+    background: var(--blanco);
+    border-radius:14px;
+    padding:14px 16px;
+    margin: 6px 0 22px;
+    border: 2px solid #ecdcd6;
+  }
+  .consentimiento input{ margin-top:3px; width:18px; height:18px; accent-color: var(--rojo); flex-shrink:0; }
+  .consentimiento p{ margin:0; font-size:13px; line-height:1.5; color:#5a4c4c; }
+
+  .boton{
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:8px;
+    width:100%;
+    padding: 16px 20px;
+    border:none;
+    border-radius: 999px;
+    background: var(--rojo);
+    color: var(--blanco);
+    font-family: var(--fuente-ui);
+    font-weight:700;
+    font-size: 15px;
+    letter-spacing:.02em;
+    cursor:pointer;
+    transition: transform .15s ease, box-shadow .15s ease, opacity .15s ease;
+    box-shadow: 0 10px 24px rgba(228,3,46,.28);
+  }
+  .boton:active{ transform: scale(.97); }
+  .boton:disabled{ opacity:.4; cursor:not-allowed; box-shadow:none; }
+  .boton.secundario{
+    background: transparent;
+    color: var(--rojo);
+    box-shadow:none;
+    border: 2px solid var(--rojo);
+  }
+
+  /* -------- pantalla ruleta -------- */
+  #pantalla-ruleta .tarjeta{
+    background:transparent;
+    box-shadow:none;
+    max-width: 620px;
+    overflow:visible;
+  }
+  #pantalla-ruleta h1, #pantalla-ruleta .subtitulo{ color: var(--blanco); }
+  #pantalla-ruleta .subtitulo{ color: #ffe4e4; }
+
+  .contenedor-ruleta{
+    position:relative;
+    width: min(78vw, 78vh, 460px);
+    height: min(78vw, 78vh, 460px);
+    margin: 8px auto 30px;
+  }
+
+  .puntero{
+    position:absolute;
+    top:-14px; left:50%;
+    transform: translateX(-50%);
+    width:0; height:0;
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 34px solid var(--dorado);
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,.35));
+    z-index:5;
+  }
+
+  .rueda{
+    width:100%; height:100%;
+    border-radius:50%;
+    position:relative;
+    border: 8px solid var(--blanco);
+    box-shadow: 0 0 0 4px var(--rojo-oscuro), 0 20px 50px rgba(0,0,0,.4);
+    transition: transform 4.4s cubic-bezier(.12,.68,.16,1);
+  }
+
+  .etiqueta-segmento{
+    position:absolute;
+    top:50%; left:50%;
+    width:2px; height:2px;
+  }
+  .etiqueta-segmento span{
+    position:absolute;
+    display:block;
+    width: 120px;
+    margin-left:-60px;
+    text-align:center;
+    font-family: var(--fuente-ui);
+    font-weight:700;
+    font-size: 13px;
+    line-height:1.15;
+    text-shadow: 0 1px 2px rgba(0,0,0,.25);
+  }
+
+  .cubo-central{
+    position:absolute;
+    top:50%; left:50%;
+    transform: translate(-50%,-50%);
+    width: 27%; height:27%;
+    border-radius:50%;
+    background: var(--blanco);
+    border: 6px solid var(--dorado);
+    display:flex; align-items:center; justify-content:center;
+    box-shadow: 0 8px 20px rgba(0,0,0,.3);
+    cursor:pointer;
+    z-index:6;
+    animation: pulso 1.8s ease-in-out infinite;
+  }
+  .cubo-central span{
+    font-family: var(--fuente-display);
+    font-weight:800;
+    font-size: clamp(15px, 3.4vw, 20px);
+    color: var(--rojo);
+    letter-spacing:.02em;
+  }
+  @keyframes pulso{
+    0%,100%{ box-shadow: 0 8px 20px rgba(0,0,0,.3); }
+    50%{ box-shadow: 0 8px 30px rgba(242,183,5,.55); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .cubo-central{ animation:none; }
+    .rueda{ transition-duration: .01s; }
+  }
+
+  /* -------- pantalla resultado -------- */
+  .icono-resultado{
+    width:78px; height:78px;
+    border-radius:50%;
+    margin: 0 auto 18px;
+    display:flex; align-items:center; justify-content:center;
+    font-family: var(--fuente-display);
+    font-weight:800;
+    font-size: 34px;
+    color: var(--blanco);
+  }
+  .icono-resultado.gano{ background: var(--verde-ok); }
+  .icono-resultado.sigue{ background: var(--rojo); }
+
+  .premio-nombre{
+    font-family: var(--fuente-display);
+    font-weight:800;
+    font-size: clamp(24px, 5vw, 32px);
+    color: var(--rojo);
+    margin: 4px 0 18px;
+  }
+
+  /* -------- confeti -------- */
+  .confeti{
+    position:fixed; inset:0; pointer-events:none; z-index:50; overflow:hidden;
+  }
+  .confeti span{
+    position:absolute; top:-10px;
+    width:9px; height:14px;
+    opacity:.95;
+    animation: caer linear forwards;
+  }
+  @keyframes caer{
+    to{ transform: translateY(112vh) rotate(540deg); opacity:.2; }
+  }
+
+  /* -------- panel admin -------- */
+  #panel-admin{
+    position:fixed; inset:0;
+    background: rgba(20,8,8,.92);
+    z-index:100;
+    display:none;
+    align-items:center; justify-content:center;
+    padding:24px;
+  }
+  #panel-admin.visible{ display:flex; }
+  .admin-caja{
+    background: var(--blanco);
+    border-radius:20px;
+    padding:24px;
+    width:100%; max-width:640px;
+    max-height:82vh;
+    display:flex; flex-direction:column;
+  }
+  .admin-caja h2{ font-family: var(--fuente-display); margin:0 0 4px; }
+  .admin-caja p{ font-family: var(--fuente-ui); font-size:13px; color:#7a6a6a; margin:0 0 16px; }
+  .admin-tabla-wrap{ overflow:auto; flex:1; border:1px solid #eee; border-radius:10px; }
+  table{ width:100%; border-collapse:collapse; font-size:13px; font-family: var(--fuente-texto); }
+  th,td{ padding:8px 10px; text-align:left; border-bottom:1px solid #f1f1f1; }
+  th{ background:#faf5f3; font-family: var(--fuente-ui); font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:.04em; color:#8a6d6d; position:sticky; top:0; }
+  .admin-acciones{ display:flex; gap:10px; margin-top:16px; }
+  .admin-acciones .boton{ width:auto; padding:12px 18px; font-size:13px; }
+
+  .pie-app{
+    position:fixed;
+    bottom:8px; left:0; right:0;
+    text-align:center;
+    font-family: var(--fuente-ui);
+    font-size:10px;
+    color: rgba(255,255,255,.45);
+    letter-spacing:.05em;
+  }
+
+  /* Pantallas táctiles grandes en vertical, como LG StanbyME 2 de 27".
+     También se adapta si el navegador informa una resolución menor por
+     la densidad de píxeles o por su propio nivel de escala. */
+  @media (orientation: portrait) and (min-width: 640px) and (min-height: 900px){
+    :root{
+      --radio-card: clamp(32px, 4vw, 58px);
+    }
+
+    .pantalla{
+      padding: clamp(36px, 6vw, 96px);
+    }
+
+    .tarjeta{
+      max-width: min(88vw, 980px);
+      max-height: 88vh;
+      padding: clamp(44px, 6.2vw, 96px);
+    }
+
+    .eyebrow{
+      font-size: clamp(16px, 1.8vw, 25px);
+      margin-bottom: clamp(16px, 2vw, 28px);
+    }
+
+    h1{
+      font-size: clamp(48px, 7.2vw, 104px);
+      margin-bottom: clamp(12px, 1.5vw, 22px);
+    }
+
+    .subtitulo{
+      font-size: clamp(20px, 2.2vw, 32px);
+      margin-bottom: clamp(38px, 5vw, 72px);
+    }
+
+    .campo{
+      margin-bottom: clamp(22px, 2.8vw, 40px);
+    }
+
+    .campo label{
+      font-size: clamp(15px, 1.65vw, 24px);
+      margin-bottom: clamp(10px, 1.2vw, 17px);
+    }
+
+    .campo input[type="text"], .campo input[type="email"]{
+      min-height: clamp(72px, 8.4vw, 116px);
+      padding: clamp(18px, 2.1vw, 30px) clamp(20px, 2.4vw, 35px);
+      border-radius: clamp(18px, 2vw, 28px);
+      font-size: clamp(20px, 2.15vw, 31px);
+      user-select: text;
+    }
+
+    .campo .error{
+      font-size: clamp(15px, 1.7vw, 22px);
+      margin-top: 10px;
+    }
+
+    .consentimiento{
+      align-items: center;
+      gap: clamp(14px, 1.8vw, 26px);
+      border-radius: clamp(18px, 2vw, 28px);
+      padding: clamp(19px, 2.4vw, 34px);
+      margin: clamp(12px, 1.5vw, 22px) 0 clamp(30px, 4vw, 54px);
+    }
+
+    .consentimiento input{
+      width: clamp(26px, 3vw, 42px);
+      height: clamp(26px, 3vw, 42px);
+      margin-top: 0;
+    }
+
+    .consentimiento p{
+      font-size: clamp(17px, 1.8vw, 25px);
+    }
+
+    .boton{
+      min-height: clamp(78px, 9vw, 128px);
+      padding: clamp(21px, 2.5vw, 36px);
+      font-size: clamp(20px, 2.2vw, 32px);
+      touch-action: manipulation;
+    }
+
+    #pantalla-ruleta .tarjeta{
+      max-width: min(94vw, 1260px);
+      padding: clamp(24px, 3vw, 48px);
+      overflow: visible;
+    }
+
+    #pantalla-ruleta .subtitulo{
+      margin-bottom: clamp(44px, 5vw, 72px);
+    }
+
+    .contenedor-ruleta{
+      width: min(80vw, 50vh, 1100px);
+      height: min(80vw, 50vh, 1100px);
+      margin: clamp(16px, 2vw, 28px) auto clamp(30px, 4vw, 56px);
+    }
+
+    .rueda{
+      border-width: clamp(9px, 1vw, 14px);
+    }
+
+    .puntero{
+      top: clamp(-24px, -1.8vw, -15px);
+      border-left-width: clamp(22px, 2.4vw, 35px);
+      border-right-width: clamp(22px, 2.4vw, 35px);
+      border-top-width: clamp(38px, 4vw, 58px);
+    }
+
+    .etiqueta-segmento span{
+      width: clamp(150px, 18vw, 260px);
+      margin-left: calc(clamp(150px, 18vw, 260px) / -2);
+      font-size: clamp(16px, 2vw, 29px);
+    }
+
+    .cubo-central{
+      border-width: clamp(7px, 0.8vw, 12px);
+      touch-action: manipulation;
+    }
+
+    .cubo-central span{
+      font-size: clamp(24px, 3.8vw, 54px);
+    }
+
+    .icono-resultado{
+      width: clamp(110px, 13vw, 180px);
+      height: clamp(110px, 13vw, 180px);
+      margin-bottom: clamp(26px, 3.2vw, 46px);
+      font-size: clamp(48px, 6vw, 80px);
+    }
+
+    .premio-nombre{
+      font-size: clamp(42px, 6vw, 82px);
+      margin: 8px 0 clamp(24px, 3vw, 42px);
+    }
+
+    .admin-caja{
+      max-width: min(90vw, 1080px);
+      max-height: 84vh;
+      padding: clamp(28px, 4vw, 54px);
+      border-radius: clamp(24px, 3vw, 42px);
+    }
+
+    .admin-caja h2{
+      font-size: clamp(26px, 3vw, 42px);
+    }
+
+    .admin-caja p, table{
+      font-size: clamp(15px, 1.65vw, 23px);
+    }
+
+    th{
+      font-size: clamp(13px, 1.35vw, 19px);
+    }
+
+    th, td{
+      padding: clamp(12px, 1.4vw, 20px);
+    }
+
+    .admin-acciones{
+      flex-wrap: wrap;
+      gap: clamp(12px, 1.5vw, 22px);
+      margin-top: clamp(20px, 2.4vw, 34px);
+    }
+
+    .admin-acciones .boton{
+      flex: 1 1 calc(50% - 22px);
+      min-height: clamp(62px, 7vw, 92px);
+      padding: clamp(14px, 1.7vw, 24px);
+      font-size: clamp(15px, 1.6vw, 22px);
+      white-space: nowrap;
+    }
+
+    .pie-app{
+      bottom: clamp(12px, 2vw, 28px);
+      padding: clamp(12px, 1.6vw, 22px);
+      font-size: clamp(14px, 1.5vw, 20px);
+      touch-action: manipulation;
+    }
+  }
+</style>
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ PANTALLA 1 — INSCRIPCIÓN ============ -->
+  <section id="pantalla-registro" class="pantalla activa">
+    <div class="tarjeta">
+      <p class="eyebrow" data-campo="eyebrowRegistro"></p>
+      <h1 data-campo="tituloRegistro"></h1>
+      <p class="subtitulo" data-campo="subtituloRegistro"></p>
+
+      <form id="form-registro" novalidate>
+        <div class="campo" id="campo-nombre">
+          <label for="input-nombre" data-campo="labelNombre"></label>
+          <input type="text" id="input-nombre" autocomplete="off">
+          <div class="error" data-campo="errorNombre"></div>
+        </div>
+        <div class="campo" id="campo-email">
+          <label for="input-email" data-campo="labelEmail"></label>
+          <input type="email" id="input-email" autocomplete="off">
+          <div class="error" id="error-email"></div>
+        </div>
+        <div class="consentimiento">
+          <input type="checkbox" id="input-consentimiento">
+          <p><label for="input-consentimiento" data-campo="textoConsentimiento"></label></p>
+        </div>
+        <button type="submit" class="boton" id="boton-continuar" data-campo="botonContinuar"></button>
+      </form>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 2 — RULETA ============ -->
+  <section id="pantalla-ruleta" class="pantalla">
+    <div class="tarjeta">
+      <p class="eyebrow" style="color:var(--dorado)" data-campo="eyebrowRuleta"></p>
+      <h1 data-campo="tituloRuleta"></h1>
+      <p class="subtitulo" data-campo="subtituloRuleta"></p>
+
+      <div class="contenedor-ruleta">
+        <div class="puntero"></div>
+        <div class="rueda" id="rueda">
+          <div id="capa-etiquetas"></div>
+        </div>
+        <div class="cubo-central" id="boton-girar"><span data-campo="textoBotonGirar"></span></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ PANTALLA 3 — RESULTADO ============ -->
+  <section id="pantalla-resultado" class="pantalla">
+    <div class="tarjeta">
+      <div class="icono-resultado" id="icono-resultado">✓</div>
+      <p class="eyebrow" id="eyebrow-resultado"></p>
+      <div class="premio-nombre" id="texto-premio"></div>
+      <p class="subtitulo" id="texto-resultado-detalle"></p>
+      <button class="boton" id="boton-jugar-de-nuevo" data-campo="botonJugarDeNuevo"></button>
+    </div>
+  </section>
+
+</div>
+
+<div class="pie-app" id="pie-app">Ruleta Somos Coto</div>
+
+<!-- ============ PANEL ADMIN (oculto, para el staff del stand) ============ -->
+<div id="panel-admin">
+  <div class="admin-caja">
+    <h2>Inscripciones</h2>
+    <p id="admin-contador">0 personas participaron</p>
+    <div class="admin-tabla-wrap">
+      <table>
+        <thead><tr><th>Nombre</th><th>Email</th><th>Premio</th><th>Hora</th></tr></thead>
+        <tbody id="admin-tbody"></tbody>
+      </table>
+    </div>
+
+    <h2 style="margin-top:20px; font-size:16px">Stock de premios</h2>
+    <div class="admin-tabla-wrap" style="max-height:160px; margin-bottom:4px;">
+      <table>
+        <thead><tr><th>Premio</th><th>Restante</th><th>Total</th></tr></thead>
+        <tbody id="admin-stock-tbody"></tbody>
+      </table>
+    </div>
+
+    <div class="admin-acciones">
+      <button class="boton" id="admin-descargar" style="width:auto">Descargar CSV</button>
+      <button class="boton secundario" id="admin-vaciar" style="width:auto">Vaciar lista</button>
+      <button class="boton secundario" id="admin-reiniciar-stock" style="width:auto">Reiniciar stock</button>
+      <button class="boton secundario" id="admin-cerrar" style="width:auto">Cerrar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================================
+   CONFIGURACIÓN DE LA RULETA
+   Todo lo que se ve en pantalla sale de acá. Para armar una versión nueva
+   para otra feria o campaña, alcanza con editar este bloque — no hace falta
+   tocar el resto del archivo.
+   ============================================================================ */
+const CONFIG = {
+
+  // ---- textos de cada pantalla (sin dos puntos ni punto y coma, en línea
+  // con el estilo de copy de SomosCOTO) ----
+  textos: {
+    eyebrowRegistro:      "Ruleta COTO",
+    tituloRegistro:       "Sumate a la ruleta",
+    subtituloRegistro:    "Dejanos tus datos para participar",
+    labelNombre:          "Nombre y apellido",
+    labelEmail:           "Email",
+    errorNombre:          "Ingresá tu nombre para continuar",
+    errorEmail:           "Ingresá un email válido",
+    errorEmailRepetido:   "Este mail ya participó de la ruleta",
+    textoConsentimiento:  "Acepto que COTO use mi nombre y mi mail para este sorteo y para enviarme novedades relacionadas",
+    botonContinuar:       "Continuar",
+    tituloRuleta:         "Girá la ruleta",
+    subtituloRuleta:      "Tocá el centro y esperá a que se detenga",
+    textoBotonGirar:      "GIRAR",
+    botonJugarDeNuevo:    "Listo, siguiente participante",
+    tituloResultadoGano:      "¡Felicitaciones!",
+    detalleResultadoGano:     "Ganaste....",
+    tituloResultadoSinPremio: "¡Casi!",
+    detalleResultadoSinPremio:"Gracias por participar, seguinos para no perderte la próxima"
+  },
+
+  // ---- segmentos de la ruleta ----
+  // color: cualquier color válido de CSS
+  // esPremio: define si el resultado se muestra como "ganaste" o como "seguí participando"
+  // peso: probabilidad relativa (un segmento con peso 3 sale 3 veces más que uno con peso 1)
+  // stock: opcional. Cantidad de unidades disponibles de ese premio. Cada vez que
+  //        sale, se descuenta una unidad. Cuando llega a 0 el casillero deja de poder
+  //        salir en el giro y pasa a mostrarse automáticamente como agotado (ver
+  //        ajustes.textoAgotado más abajo). Si no se pone stock, el premio es ilimitado.
+  //        Dejá al menos un segmento sin stock (como "Probá de nuevo") para que la
+  //        ruleta siempre tenga algo para sortear aunque se agoten todos los premios.
+  segmentos: [
+    { texto: "Cuaderno y lapicera",      color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 3, stock: 50 },
+    { texto: "Gracias por participar",     color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
+    { texto: "Kit Ganador",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: true,  peso: 2, stock: 30 },
+    { texto: "Papitas COTO",color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 1, stock: 20 },
+    { texto: "Gracias por participar",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: true,  peso: 2, stock: 25 },
+  ],
+
+  // ---- ajustes de comportamiento ----
+  ajustes: {
+    permitirEmailRepetido: false,   // false = una persona sólo puede girar una vez con el mismo mail
+    vueltasMinimas: 6,              // cuántas vueltas completas da la rueda antes de frenar
+    duracionGiroMs: 4400,           // tiene que coincidir con el "transition" de .rueda en el CSS
+    textoAgotado: "Se\nacabó",      // texto que aparece en un casillero cuando se queda sin stock
+    colorAgotado: "#D9D0CC",        // color de fondo del casillero agotado
+    textoColorAgotado: "#8a7d7d"    // color del texto del casillero agotado
+  }
+};
+
+/* ============================================================================
+   A partir de acá es lógica de la app. No hace falta tocarlo para
+   personalizar textos, colores o premios — todo eso vive en CONFIG.
+   ============================================================================ */
+
+// vuelca los textos de CONFIG en el HTML
+document.querySelectorAll('[data-campo]').forEach(el=>{
+  const clave = el.getAttribute('data-campo');
+  if (CONFIG.textos[clave] !== undefined) el.textContent = CONFIG.textos[clave];
+});
+
+const registros = [];
+let ultimoRegistro = null;
+let girando = false;
+let rotacionAcumulada = 0;
+
+// stock restante por segmento. Los segmentos sin "stock" definido quedan en
+// Infinity, o sea nunca se agotan.
+const stockInicial = CONFIG.segmentos.map(s => (typeof s.stock === 'number') ? s.stock : Infinity);
+let stockRestante = [...stockInicial];
+
+function segmentoAgotado(i){
+  return stockRestante[i] <= 0;
+}
+
+const pantallaRegistro  = document.getElementById('pantalla-registro');
+const pantallaRuleta    = document.getElementById('pantalla-ruleta');
+const pantallaResultado = document.getElementById('pantalla-resultado');
+
+function mostrarPantalla(pantalla){
+  [pantallaRegistro, pantallaRuleta, pantallaResultado].forEach(p=>{
+    p.classList.remove('activa','mostrar');
+  });
+  pantalla.classList.add('activa');
+  // si es la pantalla de la ruleta, recién ahora tiene ancho real en
+  // pantalla, así que recién ahora se puede calcular bien dónde va cada
+  // texto de cada premio
+  if (pantalla === pantallaRuleta) construirRueda();
+  requestAnimationFrame(()=> pantalla.classList.add('mostrar'));
+}
+
+// ---------- construcción visual de la rueda a partir de CONFIG.segmentos ----------
+const rueda = document.getElementById('rueda');
+const capaEtiquetas = document.getElementById('capa-etiquetas');
+
+function construirRueda(){
+  const n = CONFIG.segmentos.length;
+  const anguloSeg = 360 / n;
+
+  const stops = CONFIG.segmentos.map((s,i)=>{
+    const desde = (i*anguloSeg).toFixed(2);
+    const hasta = ((i+1)*anguloSeg).toFixed(2);
+    const color = segmentoAgotado(i) ? CONFIG.ajustes.colorAgotado : s.color;
+    return `${color} ${desde}deg ${hasta}deg`;
+  }).join(', ');
+  rueda.style.background = `conic-gradient(${stops})`;
+
+  capaEtiquetas.innerHTML = '';
+  const radio = rueda.getBoundingClientRect().width / 2;
+  const distancia = radio * 0.62;
+
+  CONFIG.segmentos.forEach((s,i)=>{
+    const agotado = segmentoAgotado(i);
+    const anguloCentro = i*anguloSeg + anguloSeg/2;
+    const cont = document.createElement('div');
+    cont.className = 'etiqueta-segmento';
+    cont.style.transform = `rotate(${anguloCentro}deg)`;
+
+    const span = document.createElement('span');
+    span.style.color = agotado ? CONFIG.ajustes.textoColorAgotado : s.textoColor;
+    span.style.transform = `translateY(${-distancia}px) rotate(${-anguloCentro}deg)`;
+    span.innerHTML = (agotado ? CONFIG.ajustes.textoAgotado : s.texto).split('\n').join('<br>');
+
+    cont.appendChild(span);
+    capaEtiquetas.appendChild(cont);
+  });
+}
+
+construirRueda();
+let reconstruirTimeout;
+window.addEventListener('resize', ()=>{
+  clearTimeout(reconstruirTimeout);
+  reconstruirTimeout = setTimeout(construirRueda, 150);
+});
+
+// ---------- formulario de inscripción ----------
+const formRegistro   = document.getElementById('form-registro');
+const inputNombre    = document.getElementById('input-nombre');
+const inputEmail     = document.getElementById('input-email');
+const inputConsent   = document.getElementById('input-consentimiento');
+const campoNombre    = document.getElementById('campo-nombre');
+const campoEmail     = document.getElementById('campo-email');
+const errorEmailDiv  = document.getElementById('error-email');
+
+function emailValido(v){
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v);
+}
+
+formRegistro.addEventListener('submit', (e)=>{
+  e.preventDefault();
+  let ok = true;
+
+  campoNombre.classList.remove('con-error');
+  campoEmail.classList.remove('con-error');
+  errorEmailDiv.textContent = CONFIG.textos.errorEmail;
+
+  const nombre = inputNombre.value.trim();
+  const email  = inputEmail.value.trim().toLowerCase();
+
+  if (!nombre){
+    campoNombre.classList.add('con-error');
+    ok = false;
+  }
+  if (!emailValido(email)){
+    campoEmail.classList.add('con-error');
+    ok = false;
+  } else if (!CONFIG.ajustes.permitirEmailRepetido && registros.some(r=>r.email===email)){
+    campoEmail.classList.add('con-error');
+    errorEmailDiv.textContent = CONFIG.textos.errorEmailRepetido;
+    ok = false;
+  }
+  if (!inputConsent.checked){
+    ok = false;
+    inputConsent.focus();
+  }
+  if (!ok) return;
+
+  ultimoRegistro = { nombre, email, premio: null, hora: new Date().toLocaleString('es-AR') };
+  registros.push(ultimoRegistro);
+  actualizarAdmin();
+
+  mostrarPantalla(pantallaRuleta);
+});
+
+// ---------- lógica del giro ----------
+const botonGirar = document.getElementById('boton-girar');
+
+function elegirSegmentoPonderado(){
+  const pesos = CONFIG.segmentos.map((s,i)=> segmentoAgotado(i) ? 0 : (s.peso ?? 1));
+  const total = pesos.reduce((a,b)=>a+b,0);
+
+  // resguardo: si por algún motivo todos los segmentos quedaron en peso 0
+  // (por ejemplo se agotó todo y no dejaron ningún segmento sin stock),
+  // sortea entre todos igual para que la ruleta nunca se rompa.
+  if (total <= 0){
+    return Math.floor(Math.random()*CONFIG.segmentos.length);
+  }
+
+  let r = Math.random()*total;
+  for (let i=0;i<pesos.length;i++){
+    r -= pesos[i];
+    if (r<=0 && pesos[i]>0) return i;
+  }
+  return pesos.findIndex(p=>p>0);
+}
+
+botonGirar.addEventListener('click', ()=>{
+  if (girando) return;
+  girando = true;
+
+  const n = CONFIG.segmentos.length;
+  const anguloSeg = 360/n;
+  const indiceElegido = elegirSegmentoPonderado();
+  const anguloCentro = indiceElegido*anguloSeg + anguloSeg/2;
+
+  // jitter chico dentro del mismo segmento para que no siempre frene en el
+  // centro exacto de la porción
+  const jitter = (Math.random()-0.5) * (anguloSeg*0.6);
+
+  const objetivoMod = ((360 - anguloCentro - jitter) % 360 + 360) % 360;
+  const actualMod = ((rotacionAcumulada % 360) + 360) % 360;
+  let delta = objetivoMod - actualMod;
+  if (delta < 0) delta += 360;
+
+  rotacionAcumulada += CONFIG.ajustes.vueltasMinimas*360 + delta;
+  rueda.style.transform = `rotate(${rotacionAcumulada}deg)`;
+
+  setTimeout(()=> mostrarResultado(CONFIG.segmentos[indiceElegido], indiceElegido), CONFIG.ajustes.duracionGiroMs + 120);
+});
+
+// ---------- pantalla de resultado ----------
+const iconoResultado   = document.getElementById('icono-resultado');
+const eyebrowResultado = document.getElementById('eyebrow-resultado');
+const textoPremio      = document.getElementById('texto-premio');
+const textoDetalle     = document.getElementById('texto-resultado-detalle');
+
+function mostrarResultado(segmento, indice){
+  girando = false;
+
+  // por las dudas: como el sorteo ya excluye agotados, esto no debería
+  // pasar nunca, pero si pasara, se descuenta stock solo si todavía queda
+  if (segmento.esPremio && stockRestante[indice] !== Infinity && stockRestante[indice] > 0){
+    stockRestante[indice] -= 1;
+    construirRueda();
+  }
+
+  const premioTexto = segmento.texto.replace('\n',' ');
+
+  if (ultimoRegistro) ultimoRegistro.premio = premioTexto;
+  actualizarAdmin();
+
+  if (segmento.esPremio){
+    iconoResultado.className = 'icono-resultado gano';
+    iconoResultado.textContent = '✓';
+    eyebrowResultado.textContent = CONFIG.textos.tituloResultadoGano;
+    textoDetalle.textContent = CONFIG.textos.detalleResultadoGano;
+    lanzarConfeti();
+  } else {
+    iconoResultado.className = 'icono-resultado sigue';
+    iconoResultado.textContent = '★';
+    eyebrowResultado.textContent = CONFIG.textos.tituloResultadoSinPremio;
+    textoDetalle.textContent = CONFIG.textos.detalleResultadoSinPremio;
+  }
+  textoPremio.textContent = premioTexto;
+
+  mostrarPantalla(pantallaResultado);
+}
+
+document.getElementById('boton-jugar-de-nuevo').addEventListener('click', ()=>{
+  formRegistro.reset();
+  campoNombre.classList.remove('con-error');
+  campoEmail.classList.remove('con-error');
+  ultimoRegistro = null;
+  mostrarPantalla(pantallaRegistro);
+});
+
+function lanzarConfeti(){
+  if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+  const colores = ['#E4032E','#F2B705','#FFFFFF','#9E0421'];
+  const cont = document.createElement('div');
+  cont.className = 'confeti';
+  for (let i=0;i<26;i++){
+    const s = document.createElement('span');
+    s.style.left = Math.random()*100+'vw';
+    s.style.background = colores[i % colores.length];
+    s.style.animationDuration = (2.4 + Math.random()*1.4)+'s';
+    s.style.animationDelay = (Math.random()*0.4)+'s';
+    cont.appendChild(s);
+  }
+  document.body.appendChild(cont);
+  setTimeout(()=> cont.remove(), 4200);
+}
+
+/* ============================================================================
+   PANEL ADMIN — para que el staff del stand vea y descargue las inscripciones.
+   Se abre tocando 5 veces seguidas el pie de página "SomosCOTO · Ruleta".
+   ============================================================================ */
+const panelAdmin  = document.getElementById('panel-admin');
+const pieApp      = document.getElementById('pie-app');
+const adminTbody  = document.getElementById('admin-tbody');
+const adminContador = document.getElementById('admin-contador');
+
+let toques = 0, toquesTimeout;
+pieApp.addEventListener('click', ()=>{
+  toques++;
+  clearTimeout(toquesTimeout);
+  toquesTimeout = setTimeout(()=> toques=0, 1800);
+  if (toques>=5){
+    toques = 0;
+    panelAdmin.classList.add('visible');
+  }
+});
+
+document.getElementById('admin-cerrar').addEventListener('click', ()=>{
+  panelAdmin.classList.remove('visible');
+});
+
+document.getElementById('admin-vaciar').addEventListener('click', ()=>{
+  if (confirm('¿Vaciar la lista de inscripciones? Esta acción no se puede deshacer.')){
+    registros.length = 0;
+    actualizarAdmin();
+  }
+});
+
+document.getElementById('admin-reiniciar-stock').addEventListener('click', ()=>{
+  if (confirm('¿Reiniciar el stock de todos los premios a los valores originales de la configuración?')){
+    stockRestante = [...stockInicial];
+    construirRueda();
+    actualizarAdmin();
+  }
+});
+
+document.getElementById('admin-descargar').addEventListener('click', ()=>{
+  const filas = [['Nombre','Email','Premio','Hora'], ...registros.map(r=>[r.nombre, r.email, r.premio||'', r.hora])];
+  const csv = filas.map(f=> f.map(v=> `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob = new Blob(['\uFEFF'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `ruleta-somoscoto-${new Date().toISOString().slice(0,10)}.csv`;
+  a.click();
+  URL.revokeObjectURL(url);
+});
+
+const adminStockTbody = document.getElementById('admin-stock-tbody');
+
+function actualizarAdmin(){
+  adminContador.textContent = `${registros.length} persona${registros.length===1?'':'s'} participaron`;
+  adminTbody.innerHTML = registros.map(r=>
+    `<tr><td>${r.nombre}</td><td>${r.email}</td><td>${r.premio||'—'}</td><td>${r.hora}</td></tr>`
+  ).join('');
+
+  adminStockTbody.innerHTML = CONFIG.segmentos
+    .map((s,i)=> ({s,i}))
+    .filter(({s})=> typeof s.stock === 'number')
+    .map(({s,i})=>{
+      const nombre = s.texto.replace('\n',' ');
+      const restante = stockRestante[i];
+      return `<tr><td>${nombre}</td><td>${restante<=0 ? '<strong style="color:#E4032E">agotado</strong>' : restante}</td><td>${s.stock}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" style="color:#aaa">Ningún premio tiene stock limitado</td></tr>';
+}
+
+// pantalla inicial
+mostrarPantalla(pantallaRegistro);
+</script>
+</body>
+</html>
