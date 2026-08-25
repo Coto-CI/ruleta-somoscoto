@@ -679,7 +679,46 @@ document.querySelectorAll('[data-campo]').forEach(el=>{
   if (CONFIG.textos[clave] !== undefined) el.textContent = CONFIG.textos[clave];
 });
 
-const registros = [];
+/* ============================================================================
+   PERSISTENCIA — guardado en localStorage del navegador.
+   Como esta página es estática (GitHub Pages), no existe forma de escribir
+   un archivo en un servidor: acá no hay servidor. Lo que hacemos en cambio
+   es guardar los datos en el almacenamiento local del propio navegador
+   (localStorage), que sobrevive a recargas de página y cierres de pestaña.
+   OJO: es por navegador y por dispositivo — si usás dos tablets/notebooks
+   para el stand, cada una va a tener su propia lista, no se comparten entre
+   sí. El respaldo real sigue siendo el botón "Descargar CSV" del panel admin.
+   ============================================================================ */
+const CLAVE_REGISTROS = 'somoscoto_ruleta_registros';
+const CLAVE_STOCK      = 'somoscoto_ruleta_stock';
+
+function cargarRegistros(){
+  try {
+    const guardado = localStorage.getItem(CLAVE_REGISTROS);
+    return guardado ? JSON.parse(guardado) : [];
+  } catch(e){
+    console.warn('No se pudieron leer los registros guardados', e);
+    return [];
+  }
+}
+
+function guardarRegistros(){
+  try {
+    localStorage.setItem(CLAVE_REGISTROS, JSON.stringify(registros));
+  } catch(e){
+    console.warn('No se pudieron guardar los registros', e);
+  }
+}
+
+function guardarStock(){
+  try {
+    localStorage.setItem(CLAVE_STOCK, JSON.stringify(stockRestante));
+  } catch(e){
+    console.warn('No se pudo guardar el stock', e);
+  }
+}
+
+const registros = cargarRegistros();
 let ultimoRegistro = null;
 let girando = false;
 let rotacionAcumulada = 0;
@@ -687,7 +726,20 @@ let rotacionAcumulada = 0;
 // stock restante por segmento. Los segmentos sin "stock" definido quedan en
 // Infinity, o sea nunca se agotan.
 const stockInicial = CONFIG.segmentos.map(s => (typeof s.stock === 'number') ? s.stock : Infinity);
-let stockRestante = [...stockInicial];
+let stockRestante = (function(){
+  try {
+    const guardado = localStorage.getItem(CLAVE_STOCK);
+    if (guardado){
+      const arr = JSON.parse(guardado);
+      // sólo lo usamos si tiene la misma cantidad de segmentos que CONFIG,
+      // si cambiaste la configuración de premios arrancamos de cero
+      if (Array.isArray(arr) && arr.length === stockInicial.length) return arr;
+    }
+  } catch(e){
+    console.warn('No se pudo leer el stock guardado', e);
+  }
+  return [...stockInicial];
+})();
 
 function segmentoAgotado(i){
   return stockRestante[i] <= 0;
@@ -797,6 +849,7 @@ formRegistro.addEventListener('submit', (e)=>{
 
   ultimoRegistro = { nombre, email, premio: null, hora: new Date().toLocaleString('es-AR') };
   registros.push(ultimoRegistro);
+  guardarRegistros();
   actualizarAdmin();
 
   mostrarPantalla(pantallaRuleta);
@@ -861,12 +914,14 @@ function mostrarResultado(segmento, indice){
   // pasar nunca, pero si pasara, se descuenta stock solo si todavía queda
   if (segmento.esPremio && stockRestante[indice] !== Infinity && stockRestante[indice] > 0){
     stockRestante[indice] -= 1;
+    guardarStock();
     construirRueda();
   }
 
   const premioTexto = segmento.texto.replace('\n',' ');
 
   if (ultimoRegistro) ultimoRegistro.premio = premioTexto;
+  guardarRegistros();
   actualizarAdmin();
 
   if (segmento.esPremio){
@@ -938,6 +993,7 @@ document.getElementById('admin-cerrar').addEventListener('click', ()=>{
 document.getElementById('admin-vaciar').addEventListener('click', ()=>{
   if (confirm('¿Vaciar la lista de inscripciones? Esta acción no se puede deshacer.')){
     registros.length = 0;
+    guardarRegistros();
     actualizarAdmin();
   }
 });
@@ -945,6 +1001,7 @@ document.getElementById('admin-vaciar').addEventListener('click', ()=>{
 document.getElementById('admin-reiniciar-stock').addEventListener('click', ()=>{
   if (confirm('¿Reiniciar el stock de todos los premios a los valores originales de la configuración?')){
     stockRestante = [...stockInicial];
+    guardarStock();
     construirRueda();
     actualizarAdmin();
   }
