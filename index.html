@@ -384,6 +384,13 @@
     touch-action:manipulation;
   }
   .stock-agotado{ color:var(--rojo); font-weight:700; }
+  .boton-confirmar{ background:var(--rojo) !important; color:#fff !important; border-color:var(--rojo) !important; }
+  #admin-aviso{
+    margin:8px 0 0; font-size:13px; color:#2e7d32; min-height:18px;
+    opacity:0; transition:opacity .25s ease;
+  }
+  #admin-aviso.visible{ opacity:1; }
+  #admin-aviso.aviso-error{ color:var(--rojo); font-weight:600; }
 
   /* -------- términos y condiciones -------- */
   #modal-terminos{
@@ -738,6 +745,7 @@
       <button class="boton secundario" id="admin-reiniciar-stock" style="width:auto">Reiniciar stock</button>
       <button class="boton secundario" id="admin-cerrar" style="width:auto">Cerrar</button>
     </div>
+    <p id="admin-aviso" role="status" aria-live="polite"></p>
   </div>
 </div>
 
@@ -751,7 +759,7 @@
    ============================================================================ */
 import { initializeApp } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-app.js";
 import {
-  getFirestore, collection, addDoc, updateDoc, doc,
+  getFirestore, collection, addDoc, updateDoc, setDoc, doc,
   serverTimestamp, onSnapshot, query, orderBy
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
@@ -767,6 +775,8 @@ const firebaseConfig = {
 let dbNube = null;            // instancia de Firestore (null si falló la conexión)
 let nubeConectada = false;    // true cuando llegó al menos un snapshot de la nube
 const registrosNube = [];     // copia en vivo de la colección "registros"
+let refStockNube = null;      // referencia al documento config/stock
+let listaVaciadaEnMs = 0;     // marca de "vaciar lista": se ocultan los registros anteriores a esta fecha
 
 try {
   const appFirebase = initializeApp(firebaseConfig);
@@ -785,12 +795,52 @@ try {
         nombre: datos.nombre || '',
         email: (datos.email || '').toLowerCase(),
         premio: datos.premio || null,
-        hora: datos.hora || ''
+        hora: datos.hora || '',
+        // serverTimestamp puede venir null un instante en el eco local:
+        // en ese caso se usa la hora actual para que el registro recién
+        // hecho no desaparezca del panel
+        creadoMs: (datos.creado && typeof datos.creado.toMillis === 'function') ? datos.creado.toMillis() : Date.now()
       });
     });
     actualizarAdmin();
   }, (error)=>{
     console.warn('No se pudo escuchar Firestore:', error);
+  });
+
+  // ---- stock compartido entre dispositivos: documento config/stock ----
+  // La nube manda: cuando cambia el documento (desde otra tablet o desde
+  // este mismo dispositivo), se aplican los valores acá y se redibuja la rueda.
+  refStockNube = doc(dbNube, 'config', 'stock');
+  onSnapshot(refStockNube, (snap)=>{
+    if (!snap.exists()){
+      // primera vez: se crea el documento con el stock configurado en CONFIG
+      guardarStockEnNube();
+      return;
+    }
+    const datos = snap.data() || {};
+    listaVaciadaEnMs = (datos.listaVaciadaEn && typeof datos.listaVaciadaEn.toMillis === 'function')
+      ? datos.listaVaciadaEn.toMillis() : 0;
+
+    const premios = datos.premios || {};
+    let cambio = false;
+    CONFIG.segmentos.forEach((segmento, indice)=>{
+      if (!segmento.esPremio) return;
+      const guardado = premios[segmento.texto];
+      if (!guardado) return;
+      const inicial  = (Number.isInteger(guardado.inicial)  && guardado.inicial  >= 0) ? guardado.inicial  : Infinity;
+      const restante = (Number.isInteger(guardado.restante) && guardado.restante >= 0) ? guardado.restante : Infinity;
+      if (stockInicial[indice]  !== inicial){  stockInicial[indice]  = inicial;  cambio = true; }
+      if (stockRestante[indice] !== restante){ stockRestante[indice] = restante; cambio = true; }
+    });
+
+    if (cambio){
+      guardarEstado();     // respaldo local sincronizado con la nube
+      construirRueda();
+    }
+    actualizarAdmin();
+  }, (error)=>{
+    console.warn('No se pudo escuchar config/stock:', error);
+    avisoAdmin('No se pudo leer el stock de Firebase. Revisá las reglas de Firestore (falta permitir la colección "config").', true);
   });
 } catch (error) {
   console.warn('No se pudo inicializar Firebase. La ruleta sigue en modo local.', error);
@@ -820,6 +870,32 @@ function actualizarPremioEnNube(registro){
     updateDoc(doc(dbNube, 'registros', ref.id), { premio: registro.premio })
       .catch(error=> console.warn('No se pudo actualizar el premio en Firebase:', error));
   });
+}
+
+// guarda el stock actual en el documento config/stock. Si opciones.vaciarLista
+// es true, además marca la fecha de vaciado: los registros anteriores a esa
+// fecha dejan de mostrarse en el panel (no se borran de Firebase, porque las
+// reglas bloquean el delete a propósito).
+function guardarStockEnNube(opciones = {}){
+  if (!dbNube || !refStockNube) return Promise.resolve(false);
+  const premios = {};
+  CONFIG.segmentos.forEach((segmento, indice)=>{
+    if (!segmento.esPremio) return;
+    premios[segmento.texto] = {
+      inicial:  Number.isFinite(stockInicial[indice])  ? stockInicial[indice]  : null,
+      restante: Number.isFinite(stockRestante[indice]) ? stockRestante[indice] : null
+    };
+  });
+  const datos = { premios, actualizado: serverTimestamp() };
+  if (opciones.vaciarLista) datos.listaVaciadaEn = serverTimestamp();
+
+  return setDoc(refStockNube, datos, { merge: true })
+    .then(()=> true)
+    .catch(error=>{
+      console.warn('No se pudo guardar el stock en Firebase:', error);
+      avisoAdmin('Firebase rechazó la escritura del stock. Revisá las reglas de Firestore (falta permitir la colección "config").', true);
+      return false;
+    });
 }
 
 /* ============================================================================
@@ -1067,7 +1143,8 @@ formRegistro.addEventListener('submit', (e)=>{
     campoEmail.classList.add('con-error');
     ok = false;
   } else if (!CONFIG.ajustes.permitirEmailRepetido &&
-             (registros.some(r=>r.email===email) || registrosNube.some(r=>r.email===email))){
+             (registros.some(r=>r.email===email) ||
+              registrosNube.some(r=> r.email===email && (!listaVaciadaEnMs || r.creadoMs > listaVaciadaEnMs)))){
     campoEmail.classList.add('con-error');
     errorEmailDiv.textContent = CONFIG.textos.errorEmailRepetido;
     ok = false;
@@ -1145,6 +1222,7 @@ function mostrarResultado(segmento, indice){
   if (segmento.esPremio && stockRestante[indice] !== Infinity && stockRestante[indice] > 0){
     stockRestante[indice] -= 1;
     construirRueda();
+    guardarStockEnNube();
   }
 
   const premioTexto = segmento.texto.replace('\n',' ');
@@ -1211,22 +1289,73 @@ document.getElementById('admin-cerrar').addEventListener('click', ()=>{
   panelAdmin.classList.remove('visible');
 });
 
-document.getElementById('admin-vaciar').addEventListener('click', ()=>{
-  if (confirm('¿Vaciar la lista local de inscripciones? Los datos guardados en Firebase NO se borran (se administran desde la consola de Firebase). Esta acción no se puede deshacer.')){
-    registros.length = 0;
-    guardarEstado();
-    actualizarAdmin();
+// Confirmación en dos toques: el primer toque cambia el texto del botón a
+// "¿Confirmar?" durante unos segundos; el segundo toque ejecuta la acción.
+// Se usa en lugar de confirm() porque los diálogos nativos quedan bloqueados
+// en iframes con sandbox (vistas previas, algunos webviews de tablet/kiosco).
+function botonConDobleConfirmacion(idBoton, alConfirmar){
+  const boton = document.getElementById(idBoton);
+  const textoOriginal = boton.textContent;
+  let armado = false;
+  let temporizador = null;
+
+  boton.addEventListener('click', ()=>{
+    if (!armado){
+      armado = true;
+      boton.textContent = '¿Confirmar?';
+      boton.classList.add('boton-confirmar');
+      temporizador = setTimeout(()=>{
+        armado = false;
+        boton.textContent = textoOriginal;
+        boton.classList.remove('boton-confirmar');
+      }, 4000);
+      return;
+    }
+    clearTimeout(temporizador);
+    armado = false;
+    boton.textContent = textoOriginal;
+    boton.classList.remove('boton-confirmar');
+    alConfirmar();
+  });
+}
+
+botonConDobleConfirmacion('admin-vaciar', ()=>{
+  // vacía el respaldo local y marca en config/stock la fecha de vaciado:
+  // los registros de Firebase anteriores a esa fecha dejan de mostrarse en
+  // el panel (no se borran de la base: las reglas bloquean el delete a propósito,
+  // y siguen visibles en la consola de Firebase)
+  registros.length = 0;
+  guardarEstado();
+  if (dbNube){
+    guardarStockEnNube({ vaciarLista: true }).then(ok=>{
+      if (ok) avisoAdmin('Lista vaciada. Los registros siguen guardados en Firebase, pero ya no se muestran acá.', false);
+    });
   }
+  actualizarAdmin();
 });
 
-document.getElementById('admin-reiniciar-stock').addEventListener('click', ()=>{
-  if (confirm('¿Reiniciar el stock de todos los premios a las cantidades configuradas?')){
-    stockRestante = [...stockInicial];
-    guardarEstado();
-    construirRueda();
-    actualizarAdmin();
-  }
+botonConDobleConfirmacion('admin-reiniciar-stock', ()=>{
+  stockRestante = [...stockInicial];
+  guardarEstado();
+  guardarStockEnNube().then(ok=>{
+    if (ok) avisoAdmin('Stock reiniciado en todos los dispositivos.', false);
+  });
+  construirRueda();
+  actualizarAdmin();
 });
+
+// mensaje chico debajo de los botones del panel (reemplaza a los alert(),
+// que quedan bloqueados en iframes con sandbox)
+let avisoAdminTimeout = null;
+function avisoAdmin(mensaje, esError){
+  const el = document.getElementById('admin-aviso');
+  if (!el) return;
+  el.textContent = mensaje;
+  el.classList.toggle('aviso-error', !!esError);
+  el.classList.add('visible');
+  clearTimeout(avisoAdminTimeout);
+  avisoAdminTimeout = setTimeout(()=> el.classList.remove('visible'), 6000);
+}
 
 const adminStockTbody = document.getElementById('admin-stock-tbody');
 
@@ -1250,14 +1379,20 @@ adminStockTbody.addEventListener('click', evento=>{
   else delete CONFIG.segmentos[indice].stock;
 
   guardarEstado();
+  guardarStockEnNube().then(ok=>{
+    if (ok) avisoAdmin('Stock guardado en Firebase.', false);
+  });
   construirRueda();
   actualizarAdmin();
 });
 
 function actualizarAdmin(){
   // si la nube está conectada se muestra lo que hay en Firestore (incluye
-  // inscripciones de otros dispositivos); si no, el respaldo local
-  const lista = nubeConectada ? registrosNube : registros;
+  // inscripciones de otros dispositivos); si no, el respaldo local.
+  // Los registros anteriores a la última vez que se tocó "Vaciar lista"
+  // quedan ocultos (siguen en Firebase, sólo dejan de mostrarse).
+  const listaNube = registrosNube.filter(r=> !listaVaciadaEnMs || r.creadoMs > listaVaciadaEnMs);
+  const lista = nubeConectada ? listaNube : registros;
   const origen = nubeConectada ? ' (Firebase)' : ' (sólo este dispositivo)';
   adminContador.textContent = `${lista.length} persona${lista.length===1?'':'s'} participaron${origen}`;
   adminTbody.innerHTML = lista.map(r=>
