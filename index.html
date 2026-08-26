@@ -750,7 +750,7 @@
 </div>
 
 <script type="module">
-  const CURRENT_VERSION = '2.8'; // Incrementa este valor en cada deploy
+const CURRENT_VERSION = '2.9.1; // Incrementa este valor en cada deploy
 
 if (localStorage.getItem('site_version') !== CURRENT_VERSION) {
   localStorage.setItem('site_version', CURRENT_VERSION);
@@ -945,11 +945,10 @@ const CONFIG = {
   //        Dejá al menos un segmento sin stock (como "Probá de nuevo") para que la
   //        ruleta siempre tenga algo para sortear aunque se agoten todos los premios.
   segmentos: [
-    { texto: "Cuaderno y lapicera",      color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 3, stock: 50 },
     { texto: "Gracias por participar",     color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
+    { texto: "Cuaderno y lapicera",      color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 3, stock: 50 },
+    { texto: "Gracias por participar",       color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
     { texto: "Kit Ganador",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: true,  peso: 2, stock: 30 },
-    { texto: "Gracias por participar",       color: "#E4032E", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
-    { texto: "Gracias por participar",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: false, peso: 2 },
   ],
 
   // ---- ajustes de comportamiento ----
