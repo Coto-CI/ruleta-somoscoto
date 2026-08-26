@@ -1,0 +1,325 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Exportar registros — Ruleta SomosCOTO</title>
+<style>
+  :root {
+    --rojo: #d5232a;
+    --rojo-oscuro: #a81b21;
+    --tinta: #211d1d;
+    --gris: #6e6868;
+    --linea: #e6e1de;
+    --fondo: #faf8f6;
+    --blanco: #ffffff;
+    --ok: #1d7a4f;
+    --error: #b3261e;
+  }
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: "Segoe UI", system-ui, -apple-system, sans-serif;
+    background: var(--fondo);
+    color: var(--tinta);
+    min-height: 100vh;
+    padding: 32px 20px 64px;
+  }
+  .contenedor { max-width: 900px; margin: 0 auto; }
+
+  header {
+    display: flex;
+    align-items: baseline;
+    gap: 14px;
+    border-bottom: 3px solid var(--rojo);
+    padding-bottom: 14px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+  .marca {
+    font-weight: 800;
+    font-size: 22px;
+    letter-spacing: -0.5px;
+    color: var(--rojo);
+  }
+  header h1 {
+    font-size: 17px;
+    font-weight: 600;
+    color: var(--tinta);
+  }
+  header .sub { font-size: 13px; color: var(--gris); margin-left: auto; }
+
+  .panel {
+    background: var(--blanco);
+    border: 1px solid var(--linea);
+    border-radius: 10px;
+    padding: 22px;
+    margin-bottom: 20px;
+  }
+  .panel h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    color: var(--gris);
+    margin-bottom: 14px;
+  }
+  label { display: block; font-size: 13px; font-weight: 600; margin-bottom: 6px; }
+  input[type="text"] {
+    width: 100%;
+    padding: 10px 12px;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    font-size: 14px;
+    background: var(--fondo);
+  }
+  input[type="text"]:focus { outline: 2px solid var(--rojo); outline-offset: 1px; }
+
+  .fila { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+  .fila > div { flex: 1; min-width: 220px; }
+
+  button {
+    font-family: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    padding: 10px 20px;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    cursor: pointer;
+    transition: background .15s ease;
+  }
+  button:focus-visible { outline: 2px solid var(--tinta); outline-offset: 2px; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .btn-principal { background: var(--rojo); color: #fff; }
+  .btn-principal:hover:not(:disabled) { background: var(--rojo-oscuro); }
+  .btn-secundario { background: var(--blanco); color: var(--tinta); border-color: var(--linea); }
+  .btn-secundario:hover:not(:disabled) { background: var(--fondo); }
+
+  .acciones { display: flex; gap: 10px; flex-wrap: wrap; margin-top: 14px; }
+
+  .estado {
+    margin-top: 14px;
+    font-size: 13px;
+    padding: 10px 12px;
+    border-radius: 8px;
+    display: none;
+  }
+  .estado.visible { display: block; }
+  .estado.info { background: #f1efec; color: var(--gris); }
+  .estado.ok { background: #e7f3ec; color: var(--ok); }
+  .estado.error { background: #fbecea; color: var(--error); }
+
+  .resumen {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 14px;
+    flex-wrap: wrap;
+  }
+  .dato .num { font-size: 26px; font-weight: 800; color: var(--rojo); }
+  .dato .etq { font-size: 12px; color: var(--gris); text-transform: uppercase; letter-spacing: .5px; }
+
+  .tabla-envoltorio {
+    overflow-x: auto;
+    border: 1px solid var(--linea);
+    border-radius: 8px;
+    max-height: 420px;
+    overflow-y: auto;
+  }
+  table { border-collapse: collapse; width: 100%; font-size: 13px; }
+  th {
+    position: sticky;
+    top: 0;
+    background: var(--tinta);
+    color: #fff;
+    text-align: left;
+    padding: 9px 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  td {
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--linea);
+    white-space: nowrap;
+    max-width: 280px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  tr:nth-child(even) td { background: var(--fondo); }
+
+  .nota { font-size: 12px; color: var(--gris); margin-top: 10px; }
+  #panelDatos { display: none; }
+</style>
+</head>
+<body>
+<div class="contenedor">
+
+  <header>
+    <span class="marca">SomosCOTO</span>
+    <h1>Exportador de registros</h1>
+    <span class="sub">Ruleta de la feria · Firestore</span>
+  </header>
+
+  <div class="panel">
+    <h2>1 · Conexión</h2>
+    <div class="fila">
+      <div>
+        <label for="coleccion">Colección</label>
+        <input type="text" id="coleccion" value="registros">
+      </div>
+      <div style="flex: 0 0 auto;">
+        <button class="btn-principal" id="btnCargar">Cargar datos</button>
+      </div>
+    </div>
+    <div class="estado" id="estado"></div>
+    <p class="nota">La configuración de Firebase está incluida en el archivo. Si cambia de proyecto, edite el bloque <code>firebaseConfig</code> dentro del HTML.</p>
+  </div>
+
+  <div class="panel" id="panelDatos">
+    <h2>2 · Datos y descarga</h2>
+    <div class="resumen">
+      <div class="dato"><div class="num" id="totalDocs">0</div><div class="etq">Registros</div></div>
+      <div class="dato"><div class="num" id="totalCampos">0</div><div class="etq">Campos</div></div>
+    </div>
+    <div class="acciones">
+      <button class="btn-principal" id="btnCsv">Descargar CSV</button>
+      <button class="btn-secundario" id="btnJson">Descargar JSON</button>
+    </div>
+    <p class="nota">El CSV incluye codificación compatible con Excel (acentos y eñes se ven correctamente).</p>
+    <div class="tabla-envoltorio" style="margin-top: 16px;">
+      <table id="tablaVista"></table>
+    </div>
+    <p class="nota" id="notaVista"></p>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+  import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+  // ============================================================
+  // PEGUE AQUÍ SU CONFIGURACIÓN DE FIREBASE
+  // (Consola de Firebase → Configuración del proyecto → Sus apps)
+  // ============================================================
+  const firebaseConfig = {
+    apiKey: "SU_API_KEY",
+    authDomain: "ruleta-somoscoto.firebaseapp.com",
+    projectId: "ruleta-somoscoto",
+    storageBucket: "ruleta-somoscoto.appspot.com",
+    messagingSenderId: "SU_SENDER_ID",
+    appId: "SU_APP_ID"
+  };
+  // ============================================================
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+
+  const $ = (id) => document.getElementById(id);
+  let datos = [];
+  let columnas = [];
+
+  function mostrarEstado(tipo, mensaje) {
+    const e = $("estado");
+    e.className = "estado visible " + tipo;
+    e.textContent = mensaje;
+  }
+
+  // Convierte valores de Firestore a texto plano (fechas, objetos, arrays)
+  function aTexto(valor) {
+    if (valor === null || valor === undefined) return "";
+    if (typeof valor === "object") {
+      if (typeof valor.toDate === "function") {
+        return valor.toDate().toLocaleString("es-AR");
+      }
+      return JSON.stringify(valor);
+    }
+    return String(valor);
+  }
+
+  async function cargar() {
+    const nombre = $("coleccion").value.trim();
+    if (!nombre) { mostrarEstado("error", "Indique el nombre de la colección."); return; }
+
+    $("btnCargar").disabled = true;
+    mostrarEstado("info", "Consultando Firestore…");
+
+    try {
+      const snapshot = await getDocs(collection(db, nombre));
+
+      if (snapshot.empty) {
+        mostrarEstado("error", `La colección "${nombre}" está vacía o no existe.`);
+        $("panelDatos").style.display = "none";
+        return;
+      }
+
+      datos = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+
+      // Reunir todas las columnas presentes en cualquier documento
+      const set = new Set();
+      datos.forEach(d => Object.keys(d).forEach(k => set.add(k)));
+      columnas = ["id", ...[...set].filter(c => c !== "id").sort()];
+
+      $("totalDocs").textContent = datos.length;
+      $("totalCampos").textContent = columnas.length;
+      dibujarTabla();
+      $("panelDatos").style.display = "block";
+      mostrarEstado("ok", `Listo: ${datos.length} registros cargados de "${nombre}".`);
+    } catch (err) {
+      console.error(err);
+      mostrarEstado("error", "Error al consultar: " + err.message +
+        (err.code === "permission-denied" ? " — Revise las reglas de seguridad de Firestore." : ""));
+    } finally {
+      $("btnCargar").disabled = false;
+    }
+  }
+
+  function dibujarTabla() {
+    const LIMITE = 50;
+    const vista = datos.slice(0, LIMITE);
+    const tabla = $("tablaVista");
+    tabla.innerHTML =
+      "<thead><tr>" + columnas.map(c => `<th>${c}</th>`).join("") + "</tr></thead>" +
+      "<tbody>" + vista.map(d =>
+        "<tr>" + columnas.map(c => `<td>${escaparHtml(aTexto(d[c]))}</td>`).join("") + "</tr>"
+      ).join("") + "</tbody>";
+    $("notaVista").textContent = datos.length > LIMITE
+      ? `Vista previa de los primeros ${LIMITE} registros. La descarga incluye los ${datos.length}.`
+      : "";
+  }
+
+  function escaparHtml(t) {
+    return t.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
+  function descargar(nombreArchivo, contenido, tipoMime) {
+    const blob = new Blob([contenido], { type: tipoMime });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = nombreArchivo;
+    a.click();
+    URL.revokeObjectURL(a.href);
+  }
+
+  function fechaHoy() {
+    const d = new Date();
+    return d.toISOString().slice(0, 10);
+  }
+
+  function descargarCsv() {
+    const filas = datos.map(d =>
+      columnas.map(c => `"${aTexto(d[c]).replace(/"/g, '""')}"`).join(",")
+    );
+    const csv = [columnas.join(","), ...filas].join("\r\n");
+    // \uFEFF = BOM para que Excel interprete UTF-8 (acentos, eñes)
+    descargar(`registros-${fechaHoy()}.csv`, "\uFEFF" + csv, "text/csv;charset=utf-8");
+  }
+
+  function descargarJson() {
+    descargar(`registros-${fechaHoy()}.json`, JSON.stringify(datos, null, 2), "application/json");
+  }
+
+  $("btnCargar").addEventListener("click", cargar);
+  $("btnCsv").addEventListener("click", descargarCsv);
+  $("btnJson").addEventListener("click", descargarJson);
+  $("coleccion").addEventListener("keydown", e => { if (e.key === "Enter") cargar(); });
+</script>
+</body>
+</html>
