@@ -750,6 +750,12 @@
 </div>
 
 <script type="module">
+  const CURRENT_VERSION = '2.8'; // Incrementa este valor en cada deploy
+
+if (localStorage.getItem('site_version') !== CURRENT_VERSION) {
+  localStorage.setItem('site_version', CURRENT_VERSION);
+  window.location.reload(true);
+}
 /* ============================================================================
    CONEXIÓN A FIREBASE (Firestore)
    Cada inscripción se guarda en la colección "registros" de la base
