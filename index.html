@@ -749,13 +749,40 @@
   </div>
 </div>
 
-<script type="module">
-  const CURRENT_VERSION = '3.0'; // Incrementa este valor en cada deploy
+<script>
+/* ============================================================================
+   VERIFICADOR DE VERSIÓN (anti-caché)
+   Cada vez que subas una versión nueva de este archivo, cambiá el valor de
+   VERSION_APP por cualquier texto distinto (por ejemplo la fecha y un número:
+   '2026-08-27.1', '2026-08-27.2', etc.).
+   Al abrir la página, el script descarga el HTML publicado salteando la caché
+   y compara versiones: si en el servidor hay una más nueva que la que el
+   navegador tiene guardada, recarga la página automáticamente una sola vez.
+   No hace nada si abrís el archivo directo desde el disco (file://).
+   ============================================================================ */
+var VERSION_APP = '2026-08-26.1';
 
-if (localStorage.getItem('site_version') !== CURRENT_VERSION) {
-  localStorage.setItem('site_version', CURRENT_VERSION);
-  window.location.reload(true);
-}
+(function(){
+  try{
+    if (window.location.protocol === 'file:') return;
+    var params = new URLSearchParams(window.location.search);
+    fetch(window.location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' })
+      .then(function(respuesta){ return respuesta.ok ? respuesta.text() : null; })
+      .then(function(html){
+        if (!html) return;
+        var coincidencia = html.match(/VERSION_APP\s*=\s*'([^']+)'/);
+        // el chequeo de params.get('v') evita un bucle de recargas si el
+        // servidor tardara en servir la versión nueva
+        if (coincidencia && coincidencia[1] !== VERSION_APP && params.get('v') !== coincidencia[1]){
+          window.location.replace(window.location.pathname + '?v=' + encodeURIComponent(coincidencia[1]));
+        }
+      })
+      .catch(function(){ /* sin internet o bloqueado: la ruleta sigue normal */ });
+  }catch(error){ /* nunca debe romper la app */ }
+})();
+</script>
+
+<script type="module">
 /* ============================================================================
    CONEXIÓN A FIREBASE (Firestore)
    Cada inscripción se guarda en la colección "registros" de la base
@@ -945,11 +972,11 @@ const CONFIG = {
   //        Dejá al menos un segmento sin stock (como "Probá de nuevo") para que la
   //        ruleta siempre tenga algo para sortear aunque se agoten todos los premios.
   segmentos: [
-    { texto: "Cuaderno y lapicera",      color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 3, stock: 50 },
     { texto: "Gracias por participar",     color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
+    { texto: "Cuaderno y lapicera",      color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 3, stock: 50 },
+    { texto: "Gracias por participar",       color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
     { texto: "Kit Ganador",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: true,  peso: 2, stock: 30 },
-    { texto: "Gracias por participar",       color: "#E4032E", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
-    { texto: "Pop Socket COTO",       color: "#9E0421", textoColor: "#FFFFFF", esPremio: true,  peso: 1 },
+    { texto: "Pop Socket COTO",       color: "#9E0421", textoColor: "#FFFFFF", esPremio: true,  peso: 1 }, // si el premio vuelve a faltar, poner peso: 0 y no sale nunca
     { texto: "Gracias por participar",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: false, peso: 2 },
   ],
 
