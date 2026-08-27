@@ -752,32 +752,67 @@
 <script>
 /* ============================================================================
    VERIFICADOR DE VERSIÓN (anti-caché)
-   Cada vez que subas una versión nueva de este archivo, cambiá el valor de
-   VERSION_APP por cualquier texto distinto (por ejemplo la fecha y un número:
-   '2026-08-27.1', '2026-08-27.2', etc.).
-   Al abrir la página, el script descarga el HTML publicado salteando la caché
-   y compara versiones: si en el servidor hay una más nueva que la que el
-   navegador tiene guardada, recarga la página automáticamente una sola vez.
-   No hace nada si abrís el archivo directo desde el disco (file://).
+   IMPORTANTE: cada vez que subas una versión nueva de este archivo, cambiá el
+   valor de VERSION_APP por cualquier texto distinto (por ejemplo la fecha y
+   un número: '2026-08-27.2', '2026-08-27.3', etc.). Si no lo cambiás, el
+   verificador cree que no hay nada nuevo y no fuerza la recarga.
+
+   Cómo funciona:
+   - Al abrir la página, y después cada 3 minutos (pensado para modo kiosco,
+     donde la tablet queda abierta días), descarga el HTML publicado
+     salteando la caché y compara versiones.
+   - Si en el servidor hay una versión más nueva, recarga la página con
+     ?v=... (eso saltea también la caché del navegador). Sólo recarga cuando
+     la app está en la pantalla de inscripción, para no cortarle el giro ni
+     el premio a nadie; si hay alguien jugando, espera y recarga después.
+   - No hace nada si abrís el archivo directo desde el disco (file://).
+
+   Ojo: algunos hostings (por ejemplo GitHub Pages) cachean en su CDN unos
+   minutos, así que el cambio puede tardar ~5-10 min en llegar igual.
    ============================================================================ */
-var VERSION_APP = '2026-08-26.1';
+var VERSION_APP = '2026-08-27.1';
 
 (function(){
   try{
     if (window.location.protocol === 'file:') return;
     var params = new URLSearchParams(window.location.search);
-    fetch(window.location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' })
-      .then(function(respuesta){ return respuesta.ok ? respuesta.text() : null; })
-      .then(function(html){
-        if (!html) return;
-        var coincidencia = html.match(/VERSION_APP\s*=\s*'([^']+)'/);
-        // el chequeo de params.get('v') evita un bucle de recargas si el
-        // servidor tardara en servir la versión nueva
-        if (coincidencia && coincidencia[1] !== VERSION_APP && params.get('v') !== coincidencia[1]){
-          window.location.replace(window.location.pathname + '?v=' + encodeURIComponent(coincidencia[1]));
-        }
-      })
-      .catch(function(){ /* sin internet o bloqueado: la ruleta sigue normal */ });
+    var versionPendiente = null;   // versión nueva detectada, esperando momento libre para recargar
+
+    function pantallaLibre(){
+      // sólo se recarga en la pantalla de inscripción, sin nadie a mitad
+      // de un giro o mirando su resultado
+      var registro = document.getElementById('pantalla-registro');
+      return !registro || registro.classList.contains('activa');
+    }
+
+    function recargar(version){
+      window.location.replace(window.location.pathname + '?v=' + encodeURIComponent(version));
+    }
+
+    function comprobarVersion(){
+      fetch(window.location.pathname + '?nocache=' + Date.now(), { cache: 'no-store' })
+        .then(function(respuesta){ return respuesta.ok ? respuesta.text() : null; })
+        .then(function(html){
+          if (!html) return;
+          var coincidencia = html.match(/VERSION_APP\s*=\s*'([^']+)'/);
+          if (!coincidencia || coincidencia[1] === VERSION_APP) return;
+          // el chequeo de params.get('v') evita un bucle de recargas si el
+          // servidor tardara en servir la versión nueva
+          if (params.get('v') === coincidencia[1]) return;
+          versionPendiente = coincidencia[1];
+          if (pantallaLibre()) recargar(versionPendiente);
+        })
+        .catch(function(){ /* sin internet o bloqueado: la ruleta sigue normal */ });
+    }
+
+    comprobarVersion();
+    setInterval(function(){
+      if (versionPendiente){
+        if (pantallaLibre()) recargar(versionPendiente);
+      } else {
+        comprobarVersion();
+      }
+    }, 3 * 60 * 1000);
   }catch(error){ /* nunca debe romper la app */ }
 })();
 </script>
@@ -971,13 +1006,19 @@ const CONFIG = {
   //        ajustes.textoAgotado más abajo). Si no se pone stock, el premio es ilimitado.
   //        Dejá al menos un segmento sin stock (como "Probá de nuevo") para que la
   //        ruleta siempre tenga algo para sortear aunque se agoten todos los premios.
+  // Los segmentos van intercalados premio / "gracias" para que nunca queden
+  // dos "Gracias por participar" pegados (la rueda es circular: el último
+  // casillero queda al lado del primero, ojo con eso al reordenar).
+  // Con estos pesos, "Gracias por participar" suma 3 de 9 → sale ~33% de las
+  // veces (antes era 50%). Para bajarlo más, subí el peso de los premios o
+  // bajá el de los "gracias".
   segmentos: [
-    { texto: "Gracias por participar",     color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
     { texto: "Cuaderno y lapicera",      color: "#E4032E", textoColor: "#FFFFFF", esPremio: true,  peso: 3, stock: 50 },
-    { texto: "Gracias por participar",       color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 2 },
-    { texto: "Kit Ganador",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: true,  peso: 2, stock: 30 },
-    { texto: "Pop Socket COTO",       color: "#9E0421", textoColor: "#FFFFFF", esPremio: true,  peso: 1 }, // si el premio vuelve a faltar, poner peso: 0 y no sale nunca
-    { texto: "Gracias por participar",       color: "#FFFFFF", textoColor: "#E4032E", esPremio: false, peso: 2 },
+    { texto: "Gracias por participar",   color: "#9E0421", textoColor: "#FFFFFF", esPremio: false, peso: 1 },
+    { texto: "Kit Ganador",              color: "#FFFFFF", textoColor: "#E4032E", esPremio: true,  peso: 2, stock: 30 },
+    { texto: "Gracias por participar",   color: "#E4032E", textoColor: "#FFFFFF", esPremio: false, peso: 1 },
+    { texto: "Pop Socket COTO",          color: "#9E0421", textoColor: "#FFFFFF", esPremio: true,  peso: 1 }, // si el premio vuelve a faltar, poner peso: 0 y no sale nunca
+    { texto: "Gracias por participar",   color: "#FFFFFF", textoColor: "#E4032E", esPremio: false, peso: 1 },
   ],
 
   // ---- ajustes de comportamiento ----
